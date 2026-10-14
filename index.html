@@ -715,6 +715,10 @@ nav.tabs button.on .ico{stroke-width:2.1}
 .brief .syncchip{margin-top:10px}
 .syncwho{display:flex;flex-direction:column;gap:2px;margin-bottom:6px}
 .btn .ico[aria-hidden]{stroke-width:1.6}
+.ob-or{font-size:12px;color:var(--color-muted);text-align:center;margin:14px 0 2px}
+.ob-welcome .ob-err:empty{display:none}
+.logincard{margin-bottom:12px}
+.logincard .lnote{margin-top:8px;font-size:12px}
 /* 홈 출석 카드 안 */
 #attMeterHome .absm{box-shadow:none;background:transparent;padding:0;margin:0 0 12px;border-radius:0}
 #attBox .stats .stat{background:var(--color-soft);box-shadow:none}
@@ -1692,6 +1696,12 @@ nav.tabs button.on .ico{stroke-width:2.1}
     if(isOff(tk)) head.appendChild(el('div','gsub','오늘은 쉬는 날이에요'));
     { const ch=syncChipEl(); if(ch) head.appendChild(ch); }
     W.appendChild(head);
+    if((fbConfig()||window.__nnyFake) && SY.ad && !SY.user && SY.st!=='loading' && !(()=>{ try{ return localStorage.getItem('nny-login-dismiss')==='1'; }catch(e){ return false; } })()){
+      const lb=el('div','card logincard'); const tx=el('div','lt'); tx.append(el('strong',null,'Google로 로그인하면 기기 간 기록이 이어져요'), el('div','small muted','아이폰·아이패드에서 같은 계정으로 로그인하면 숙제, 출석, TP 기록이 자동으로 맞춰져요. 로그인하지 않으면 이 기기에만 저장돼요.'));
+      const r=el('div','row'); r.style.marginTop='12px'; const x=el('button','btn','Google로 로그인'); const y=el('button','btn ghost','나중에');
+      x.addEventListener('click',async()=>{ try{ setSync('loading',''); await SY.ad.signIn(); }catch(e){ setSync('error',/popup-closed/.test(e.code||'')?'로그인 창이 닫혔어요. 다시 시도해 주세요.':'로그인하지 못했어요 ('+(e.code||e.message||e)+').'); renderTodayHw(); } });
+      y.addEventListener('click',()=>{ try{ localStorage.setItem('nny-login-dismiss','1'); }catch(e){} renderTodayHw(); });
+      r.append(x,y); lb.append(tx,r); lb.appendChild(el('div','small muted lnote','나중에 과정 탭 → 계정 · 동기화에서 언제든 로그인할 수 있어요.')); W.appendChild(lb); }
     if(!S.profile.done){ const b=el('div','card regcard'); b.append(el('strong',null,'아직 내 정보를 등록하지 않았어요'), el('div','small muted','반을 등록하면 시간표, Day별 숙제, 결석 허용 횟수, 카페 제목이 내 반에 맞춰져요. 지금은 둘러보기 화면이에요.'));
       const r=el('div','row'); r.style.marginTop='10px'; const x=el('button','btn','내 정보 등록하기'); x.addEventListener('click',()=>buildOnboard('form')); const y=el('button','btn ghost','처음 화면 보기'); y.addEventListener('click',()=>buildOnboard('welcome')); r.append(x,y); b.appendChild(r); W.appendChild(b); }
     { const A=$('#attMeterHome'); A.textContent=''; $('#attBox').hidden=!c; if(c){ A.appendChild(absMeter()); } }
@@ -2659,8 +2669,12 @@ nav.tabs button.on .ico{stroke-width:2.1}
       const L=el('div','ob-feat');
       [['cal','내 반 시간표와 숙제가 Day별로 자동으로'],['msg','TP Output 연습: 빈칸, 영어 입력, 오답 복습'],['att','출석, 결석 허용 횟수, 이번 달 과정 요약']].forEach(([i,t])=>{ const r=el('div','fr'); const f=el('span','fi'); f.appendChild(ic(i)); r.append(f, el('span',null,t)); L.appendChild(r); });
       card.appendChild(L);
-      card.appendChild(el('div','ob-sub', inClaude()?'기록은 내 Claude 계정에 저장돼요.':'기록은 이 기기 브라우저에만 저장돼요. 로그인은 필요 없어요.'));
-      const a=el('button','btn ob-go','시작하기'); a.addEventListener('click',()=>buildOnboard('form'));
+      card.appendChild(el('div','ob-sub', inClaude()?'기록은 내 Claude 계정에 저장돼요.':(fbConfig()||window.__nnyFake)?'Google로 로그인하면 아이폰·아이패드 기록이 자동으로 이어져요. 로그인 없이 시작하면 이 기기에만 저장돼요.':'기록은 이 기기 브라우저에만 저장돼요. 로그인은 필요 없어요.'));
+      if(fbConfig()||window.__nnyFake){ const g=el('button','btn ob-go','Google로 로그인하고 시작'); const gm=el('div','ob-err');
+        g.addEventListener('click',async()=>{ if(!SY.ad){ gm.textContent='연결 중이에요. 잠시 후 다시 눌러주세요.'; return; } gm.textContent=''; SY.fromWelcome=true; S.profile.skip=true; save();
+          try{ await SY.ad.signIn(); }catch(e){ SY.fromWelcome=false; gm.textContent=/popup-closed/.test(e.code||'')?'로그인 창이 닫혔어요. 다시 시도하거나 아래로 시작하세요.':'로그인하지 못했어요. 아래 "시작하기"로 먼저 쓰고, 나중에 과정 탭에서 로그인할 수 있어요.'; } });
+        card.append(g,gm); card.appendChild(el('div','ob-or','또는 로그인 없이')); }
+      const a=el('button','btn '+((fbConfig()||window.__nnyFake)?'ghost ':'')+'ob-go','시작하기'); a.addEventListener('click',()=>buildOnboard('form'));
       const b=el('button','btn ghost ob-skip','둘러보기 · 나중에 등록할게요'); b.addEventListener('click',()=>{ S.profile.skip=true; closeOnboard(); commit(); go('today'); window.scrollTo({top:0}); });
       card.append(a,b); return;
     }
@@ -2874,7 +2888,7 @@ Rules:
   function setSync(st,err){ SY.st=st; if(err!==undefined) SY.err=err; renderSyncChips(); }
   const SYNC_LAB = {local:'이 기기에만 저장', saving:'저장 중', ok:'동기화 완료', offline:'오프라인', error:'오류', off:'로그인 필요', loading:'연결 중'};
   function syncChipEl(){ if(!fbConfig()&&!window.__nnyFake) return null; const c=el('button','syncchip s-'+SY.st); c.id='syncChip'; c.appendChild(ic('cloud')); c.appendChild(el('span',null,SYNC_LAB[SY.st]||'')); c.addEventListener('click',()=>{ go('course'); const x=$('#syncCard'); if(x) x.scrollIntoView({block:'center'}); }); return c; }
-  function renderSyncChips(){ const c=$('#syncChip'); if(c){ c.className='syncchip s-'+SY.st; c.lastChild.textContent=SYNC_LAB[SY.st]||''; } renderSync(); }
+  function renderSyncChips(){ if(['off','ok','error'].includes(SY.st)&&!SY._homeAt){ SY._homeAt=1; setTimeout(()=>{ SY._homeAt=0; renderTodayHw(); },0); } const c=$('#syncChip'); if(c){ c.className='syncchip s-'+SY.st; c.lastChild.textContent=SYNC_LAB[SY.st]||''; } renderSync(); }
   // 원격 저장소 어댑터 (Firebase). 테스트용 가짜 저장소도 같은 모양으로 꽂을 수 있음
   async function fbAdapter(cfg){
     const B='https://www.gstatic.com/firebasejs/'+FB_VER+'/';
@@ -2949,6 +2963,7 @@ Rules:
       GROUPS.forEach(g=>{ if(R[g]) reconcile(g,R[g]); });
     }
     S._uid=S._uid||''; render(); maybeOnboard();
+    if(SY.fromWelcome){ SY.fromWelcome=false; if(!S.profile.done) buildOnboard('form'); }
     GROUPS.forEach(g=>SY.unsubs.push(SY.ad.listen(u.uid,g,(d,pend)=>{ if(pend||!d||d.json==null) return; if(d.by===DEVICE&&d.json===SY.base[g]) return; reconcile(g,d); })));
     setSync(navigator.onLine===false?'offline':'ok'); SY.lastOk=Date.now(); syncQueue(true);
   }
