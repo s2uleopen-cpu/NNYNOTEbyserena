@@ -706,6 +706,15 @@ nav.tabs button.on .ico{stroke-width:2.1}
 /* 로드맵이 .path 안에 있을 때 여백 충돌 방지 */
 .path{display:block;padding:0;background:none} .path > .road{margin:0 0 14px}
 .path .road div{padding:0;border-radius:0;text-align:left;background:none;box-shadow:none}
+.syncchip{display:inline-flex;align-items:center;gap:5px;border:0;border-radius:999px;padding:0 10px;height:26px;font-size:12px;font-weight:600;background:var(--color-soft);color:var(--color-text-secondary)}
+.syncchip .ico{width:15px;height:15px}
+.syncchip.s-ok{background:var(--color-success-soft);color:var(--color-success)}
+.syncchip.s-saving,.syncchip.s-loading{background:var(--color-info-soft);color:var(--color-info)}
+.syncchip.s-offline{background:var(--color-warning-soft);color:var(--color-warning)}
+.syncchip.s-error{background:var(--color-danger-soft);color:var(--color-danger)}
+.brief .syncchip{margin-top:10px}
+.syncwho{display:flex;flex-direction:column;gap:2px;margin-bottom:6px}
+.btn .ico[aria-hidden]{stroke-width:1.6}
 /* 홈 출석 카드 안 */
 #attMeterHome .absm{box-shadow:none;background:transparent;padding:0;margin:0 0 12px;border-radius:0}
 #attBox .stats .stat{background:var(--color-soft);box-shadow:none}
@@ -734,6 +743,8 @@ nav.tabs button.on .ico{stroke-width:2.1}
 <symbol id="i-chev-l" viewBox="0 0 24 24"><path d="m14.5 5.5-6.5 6.5 6.5 6.5"/></symbol>
 <symbol id="i-chev-r" viewBox="0 0 24 24"><path d="m9.5 5.5 6.5 6.5-6.5 6.5"/></symbol>
 <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="i-cloud" viewBox="0 0 24 24"><path d="M7 18.5h10.5a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.6 9.6 4.5 4.5 0 0 0 7 18.5z"/></symbol>
+<symbol id="i-google" viewBox="0 0 24 24"><path d="M20.5 12.2c0-.6-.1-1.2-.2-1.7H12v3.3h4.8a4.1 4.1 0 0 1-1.8 2.7v2.2h2.9c1.7-1.6 2.6-3.9 2.6-6.5z"/><path d="M12 21c2.4 0 4.5-.8 5.9-2.2L15 16.5c-.8.5-1.8.9-3 .9-2.3 0-4.3-1.6-5-3.7H4v2.3A9 9 0 0 0 12 21z"/><path d="M7 13.7a5.4 5.4 0 0 1 0-3.4V8H4a9 9 0 0 0 0 8z"/><path d="M12 6.6c1.3 0 2.5.5 3.4 1.3l2.5-2.5A9 9 0 0 0 4 8l3 2.3c.7-2.1 2.7-3.7 5-3.7z"/></symbol>
 </defs></svg>
 <div class="wrap">
   <div class="save" id="saveState"></div>
@@ -946,6 +957,7 @@ nav.tabs button.on .ico{stroke-width:2.1}
       <input type="text" id="meTpl" style="width:100%">
       <div class="small muted" style="margin-top:6px">이름·반·스터디·조·번호를 바꾸면 자동으로 다시 만들어져요. {day} 자리에 Day 번호가 들어가요.</div>
     </div>
+    <div class="card" id="syncCard"></div>
     <div class="card" id="themeCard"></div>
     <div class="card">
       <strong>백업 · 기기 옮기기</strong>
@@ -1156,7 +1168,7 @@ nav.tabs button.on .ico{stroke-width:2.1}
     v:2, cls:'', studyPick:0, start:todayKey().slice(0,7), hwChk:{}, scope:{}, hidden:{}, hist:[], unit:'', unitYm:'', upAt:{}, upLate:{}, seed:{}, nview:'both',
     me:{en:'', tpl:''}, profile:{done:false, name:'', en:'', group:'', num:''}, _uid:'',
     notes:[], hw:[], log:{}, events:[], months:{}, ex:{}, hwAt:{}, hwHold:{}, hwEdit:{}, tp:{pos:{}, fav:{}, hard:{}, log:[]},
-    goals:{week:300, note:30}
+    goals:{week:300, note:30}, palette:''
   };
   // ---------- Chapter 5 자료 (TP / Vocabulary) — 처음 한 번만 넣음
   const SEED5 = {
@@ -1218,7 +1230,7 @@ nav.tabs button.on .ico{stroke-width:2.1}
   function merge(d){
     const o = JSON.parse(JSON.stringify(DEFAULT));
     if(!d || typeof d!=='object') return o;
-    ['cls','studyPick','start','notes','hw','log','events','hwChk','scope','hidden','hist','unit','unitYm','upAt','upLate','seed','nview','months','ex','hwAt','hwHold','hwEdit','tp'].forEach(k=>{ if(d[k]!==undefined) o[k]=d[k]; });
+    ['cls','studyPick','start','notes','hw','log','events','hwChk','scope','hidden','hist','unit','unitYm','upAt','upLate','seed','nview','months','ex','hwAt','hwHold','hwEdit','tp','palette'].forEach(k=>{ if(d[k]!==undefined) o[k]=d[k]; });
     o.goals = Object.assign({}, DEFAULT.goals, d.goals||{});
     o.me = Object.assign({}, DEFAULT.me, d.me||{});
     o.profile = Object.assign({}, DEFAULT.profile, d.profile||{}); o._uid = d._uid||'';
@@ -1251,7 +1263,7 @@ nav.tabs button.on .ico{stroke-width:2.1}
     o.v=3; seedCh5(o); return o;
   }
   function setSave(t){ $('#saveState').textContent=t; }
-  function save(){
+  var save=function(){
     try{ localStorage.setItem(LS, JSON.stringify(S)); }catch(e){}
     if(!docRef) return;
     clearTimeout(saveTimer); setSave('저장 중…');
@@ -1259,8 +1271,9 @@ nav.tabs button.on .ico{stroke-width:2.1}
       try{ await docRef.set({state:JSON.stringify(S),at:Date.now()}); setSave('저장됨'); setTimeout(()=>setSave(''),1500); }
       catch(e){ setSave('저장하지 못했어요. 이 기기에만 남아 있어요.'); }
     },600);
-  }
+  };
   function commit(){ save(); render(); }
+  const _save0=save; save=function(){ _save0(); if(typeof syncQueue==='function') syncQueue(); };
 
   // ---------- tabs
   function go(t){
@@ -1477,7 +1490,7 @@ nav.tabs button.on .ico{stroke-width:2.1}
   const PALETTES=[['classic','Classic','블랙 & 화이트','#191919','#F7F7F5','#EAEAE7'],['sage','Sage','세이지 그린','#477866','#F6F8F5','#E2ECE5'],['sky','Sky','소프트 블루','#426EAB','#F5F8FC','#E3ECF8'],
     ['lavender','Lavender','라벤더','#7866A9','#F8F6FC','#ECE7F6'],['sand','Sand','웜 베이지','#947651','#FAF8F3','#F0E8DA'],['rose','Rose','더스티 로즈','#A26B7D','#FCF7F8','#F3E5EA']];
   const curPalette = () => { try{ return localStorage.getItem('nny-palette')||'classic'; }catch(e){ return 'classic'; } };
-  function applyPalette(k){ try{ localStorage.setItem('nny-palette',k); }catch(e){}
+  function applyPalette(k,fromSync){ try{ localStorage.setItem('nny-palette',k); }catch(e){} if(!fromSync && S.palette!==k){ S.palette=k; save(); }
     if(k==='classic') document.documentElement.removeAttribute('data-palette'); else document.documentElement.setAttribute('data-palette',k);
     const P2=PALETTES.find(x=>x[0]===k)||PALETTES[0]; const m=document.querySelector('meta[name="theme-color"]'); if(m) m.setAttribute('content',P2[4]); renderTheme(); }
   function renderTheme(){ const W=$('#themeCard'); if(!W) return; W.textContent=''; const cur=curPalette();
@@ -1677,6 +1690,7 @@ nav.tabs button.on .ico{stroke-width:2.1}
     head.appendChild(el('div','greet',S.profile.done?((hr<12?'Good morning':hr<18?'Good afternoon':'Good evening')+(en?', '+en:'')):'Welcome to NNY Planner'));
     head.appendChild(el('div','gdate',(now.getMonth()+1)+'월 '+now.getDate()+'일 '+DOW[now.getDay()]+'요일'));
     if(isOff(tk)) head.appendChild(el('div','gsub','오늘은 쉬는 날이에요'));
+    { const ch=syncChipEl(); if(ch) head.appendChild(ch); }
     W.appendChild(head);
     if(!S.profile.done){ const b=el('div','card regcard'); b.append(el('strong',null,'아직 내 정보를 등록하지 않았어요'), el('div','small muted','반을 등록하면 시간표, Day별 숙제, 결석 허용 횟수, 카페 제목이 내 반에 맞춰져요. 지금은 둘러보기 화면이에요.'));
       const r=el('div','row'); r.style.marginTop='10px'; const x=el('button','btn','내 정보 등록하기'); x.addEventListener('click',()=>buildOnboard('form')); const y=el('button','btn ghost','처음 화면 보기'); y.addEventListener('click',()=>buildOnboard('welcome')); r.append(x,y); b.appendChild(r); W.appendChild(b); }
@@ -2806,9 +2820,183 @@ Rules:
       ? '기록은 Claude 계정에 자동 저장돼요. 백업은 혹시 모를 때를 위한 예비용이에요.'
       : '기록은 이 기기 브라우저에만 저장돼요. 다른 기기로 옮기거나 브라우저 데이터를 지우기 전에 백업해두세요.'; }
 
+
+  // ================= 클라우드 동기화 (Firebase · 선택 기능) =================
+  // Firebase 설정값을 아래에 넣으면 Google 로그인 + 기기 간 동기화가 켜져요. 비워두면 지금처럼 이 기기에만 저장돼요.
+  // 이 값은 비밀번호가 아니에요(웹 앱 공개용). 개인 기록 보호는 Firestore 보안 규칙이 맡아요.
+  const FIREBASE_CONFIG = {
+    apiKey: "AIzaSyB2EiFYWbBrzmQysBO57gHgndZY1ULVrtg",
+    authDomain: "nnyplanner.firebaseapp.com",
+    projectId: "nnyplanner",
+    storageBucket: "nnyplanner.firebasestorage.app",
+    messagingSenderId: "1022611054897",
+    appId: "1:1022611054897:web:50f50dbed8a6ea569a9010",
+    measurementId: "G-Z2C0P6J1EV"
+  };
+  const FB_VER = '10.12.2';
+  const SG = { hw:['hw','hwChk','hwAt','hwHold','hwEdit','upAt','upLate'], att:['log'], notes:['notes'], tp:['tp'] }; // 나머지는 prefs
+  const GROUPS = ['prefs','hw','att','notes','tp'];
+  const DEVICE = (()=>{ try{ let d=localStorage.getItem('nny-device'); if(!d){ d=Math.random().toString(36).slice(2,10); localStorage.setItem('nny-device',d); } return d; }catch(e){ return 'dev'; } })();
+  const SY = { st:'local', user:null, ad:null, base:{}, unsubs:[], timer:null, dirtyAt:{}, pending:0, lastOk:0, err:'', busy:false, needRender:false };
+  function fbConfig(){ if(FIREBASE_CONFIG) return FIREBASE_CONFIG; try{ const t=localStorage.getItem('nny-fb-config'); return t?JSON.parse(t):null; }catch(e){ return null; } }
+  const grpOfKey = k => Object.keys(SG).find(g=>SG[g].includes(k))||'prefs';
+  function sortKeys(v){ if(Array.isArray(v)) return v.map(sortKeys); if(v&&typeof v==='object'){ const o={}; Object.keys(v).sort().forEach(k=>{ if(v[k]!==undefined) o[k]=sortKeys(v[k]); }); return o; } return v; }
+  const stable = v => JSON.stringify(sortKeys(v===undefined?null:v));
+  function splitState(st){ const o={}; GROUPS.forEach(g=>o[g]={}); Object.keys(st).forEach(k=>{ if(k==='_uid') return; o[grpOfKey(k)][k]=st[k]; }); return o; }
+  // 3-way 병합: base(마지막으로 맞춘 상태) 기준으로 양쪽 변경을 합침. 같은 항목을 둘 다 바꾸면 최근 쪽.
+  const isObj = v => v&&typeof v==='object'&&!Array.isArray(v);
+  const eqv = (a,b) => stable(a)===stable(b);
+  const idOf = x => !x||typeof x!=='object'?null: x.id!=null?'i:'+x.id : (x.s!=null&&x.at!=null)?'s:'+x.s+':'+x.at : null;
+  function merge3(base,a,b,aNewer){
+    if(eqv(a,b)) return a; if(base!==undefined && eqv(a,base)) return b; if(base!==undefined && eqv(b,base)) return a;
+    if(a===undefined) return b; if(b===undefined) return a;
+    if(isObj(a)&&isObj(b)){ const bs=isObj(base)?base:{}; const o={};
+      new Set([...Object.keys(a),...Object.keys(b)]).forEach(k=>{ const ia=k in a, ib=k in b, ix=k in bs;
+        if(ia&&ib) o[k]=merge3(bs[k],a[k],b[k],aNewer);
+        else if(ia){ if(!(ix&&eqv(a[k],bs[k]))) o[k]=a[k]; }
+        else { if(!(ix&&eqv(b[k],bs[k]))) o[k]=b[k]; } });
+      return o; }
+    if(Array.isArray(a)&&Array.isArray(b)&&a.concat(b).every(idOf)){
+      const bm=new Map((Array.isArray(base)?base:[]).filter(idOf).map(x=>[idOf(x),x])), am=new Map(a.map(x=>[idOf(x),x])), cm=new Map(b.map(x=>[idOf(x),x]));
+      const out=[]; const seen=new Set();
+      const put=k=>{ if(seen.has(k)) return; seen.add(k); const ia=am.has(k), ib=cm.has(k), ix=bm.has(k);
+        if(ia&&ib) out.push(merge3(bm.get(k),am.get(k),cm.get(k),aNewer));
+        else if(ia){ if(!(ix&&eqv(am.get(k),bm.get(k)))) out.push(am.get(k)); }
+        else { if(!(ix&&eqv(cm.get(k),bm.get(k)))) out.push(cm.get(k)); } };
+      a.forEach(x=>put(idOf(x))); b.forEach(x=>put(idOf(x)));
+      if(out.length&&out[0]&&out[0].s!=null&&out[0].at!=null) out.sort((x,y)=>x.at-y.at);
+      return out; }
+    return aNewer?a:b;
+  }
+  function baseKey(){ return 'nny-sync-base:'+(SY.user?SY.user.uid:''); }
+  function loadBase(){ try{ SY.base=JSON.parse(localStorage.getItem(baseKey())||'{}')||{}; }catch(e){ SY.base={}; } }
+  function storeBase(){ try{ localStorage.setItem(baseKey(),JSON.stringify(SY.base)); }catch(e){} }
+  function setSync(st,err){ SY.st=st; if(err!==undefined) SY.err=err; renderSyncChips(); }
+  const SYNC_LAB = {local:'이 기기에만 저장', saving:'저장 중', ok:'동기화 완료', offline:'오프라인', error:'오류', off:'로그인 필요', loading:'연결 중'};
+  function syncChipEl(){ if(!fbConfig()&&!window.__nnyFake) return null; const c=el('button','syncchip s-'+SY.st); c.id='syncChip'; c.appendChild(ic('cloud')); c.appendChild(el('span',null,SYNC_LAB[SY.st]||'')); c.addEventListener('click',()=>{ go('course'); const x=$('#syncCard'); if(x) x.scrollIntoView({block:'center'}); }); return c; }
+  function renderSyncChips(){ const c=$('#syncChip'); if(c){ c.className='syncchip s-'+SY.st; c.lastChild.textContent=SYNC_LAB[SY.st]||''; } renderSync(); }
+  // 원격 저장소 어댑터 (Firebase). 테스트용 가짜 저장소도 같은 모양으로 꽂을 수 있음
+  async function fbAdapter(cfg){
+    const B='https://www.gstatic.com/firebasejs/'+FB_VER+'/';
+    const [A,AU,FS]=await Promise.all([import(B+'firebase-app.js'),import(B+'firebase-auth.js'),import(B+'firebase-firestore.js')]);
+    const app=A.initializeApp(cfg); const auth=AU.getAuth(app);
+    let db; try{ db=FS.initializeFirestore(app,{localCache:FS.persistentLocalCache({tabManager:FS.persistentMultipleTabManager()})}); }catch(e){ db=FS.getFirestore(app); }
+    AU.getRedirectResult(auth).catch(()=>{});
+    const ref=(uid,g)=>FS.doc(db,'users',uid,'state',g);
+    return {
+      onAuth:cb=>AU.onAuthStateChanged(auth,u=>cb(u?{uid:u.uid,email:u.email||'',name:u.displayName||''}:null)),
+      signIn:async()=>{ const pv=new AU.GoogleAuthProvider(); pv.setCustomParameters({prompt:'select_account'});
+        try{ await AU.signInWithPopup(auth,pv); } catch(e){ if(/popup-blocked|operation-not-supported|popup-closed-by-user/.test(e.code||'')&&e.code!=='auth/popup-closed-by-user') await AU.signInWithRedirect(auth,pv); else throw e; } },
+      signOut:()=>AU.signOut(auth),
+      get:async(uid,g)=>{ const d=await FS.getDoc(ref(uid,g)); return d.exists()?d.data():null; },
+      set:(uid,g,data)=>FS.setDoc(ref(uid,g),Object.assign({},data,{at:FS.serverTimestamp()})),
+      listen:(uid,g,cb)=>FS.onSnapshot(ref(uid,g),{includeMetadataChanges:true},d=>cb(d.exists()?d.data():null,d.metadata.hasPendingWrites,d.metadata.fromCache))
+    };
+  }
+  async function initSync(){
+    const cfg=fbConfig(); if(!cfg&&!window.__nnyFake){ setSync('local'); return; }
+    setSync('loading');
+    try{ SY.ad = window.__nnyFake ? window.__nnyFake : await fbAdapter(cfg); }
+    catch(e){ setSync('error','동기화 모듈을 불러오지 못했어요. 인터넷 연결을 확인하세요. 기록은 이 기기에 계속 저장돼요.'); return; }
+    SY.ad.onAuth(u=>onUser(u).catch(e=>setSync('error','동기화를 시작하지 못했어요: '+(e&&e.message||e))));
+    window.addEventListener('online',()=>{ if(SY.user){ setSync(SY.pending?'saving':'ok'); syncQueue(true); } });
+    window.addEventListener('offline',()=>{ if(SY.user) setSync('offline'); });
+    document.addEventListener('focusout',()=>{ if(SY.needRender){ setTimeout(()=>{ const a=document.activeElement; if(!a||!/INPUT|TEXTAREA|SELECT/.test(a.tagName)){ SY.needRender=false; render(); maybeOnboard(); } },0); } });
+  }
+  function stopSync(){ SY.unsubs.forEach(f=>{ try{ f(); }catch(e){} }); SY.unsubs=[]; clearTimeout(SY.timer); }
+  const meaningful = st => !!(st && (st.profile&&st.profile.done || Object.keys(st.log||{}).length || Object.keys(st.hwChk||{}).length || (st.tp&&st.tp.log&&st.tp.log.length) || (st.notes||[]).some(n=>!SEED_E.has(n.e||''))));
+  const SEED_E = new Set([...SEED5.tp.map(x=>x[2]), ...SEED5.voc.map(x=>x[1])]);
+  function summ(st){ return '노트 '+(st.notes||[]).length+'개 · 출결 '+Object.keys(st.log||{}).length+'일 · 숙제 체크 '+Object.keys(st.hwChk||{}).length+'개 · TP 기록 '+((st.tp&&st.tp.log)||[]).length+'개'; }
+  function backupLocal(){ try{ localStorage.setItem(LS+'-before-sync',JSON.stringify({at:Date.now(),state:S})); }catch(e){} }
+  function ask(title,body,btns){ return new Promise(res=>{ closeOnboard(); const ov=el('div','onboard'); ov.id='onboard'; ov.setAttribute('role','dialog'); ov.setAttribute('aria-modal','true'); const card=el('div','ob-card'); ov.appendChild(card);
+    card.append(el('div','ob-hi',title)); body.forEach(t=>card.appendChild(typeof t==='string'?el('div','ob-sub',t):t));
+    btns.forEach(([v,l,cls])=>{ const b=el('button','btn '+(cls||'ghost')+' ob-skip',l); b.addEventListener('click',()=>{ closeOnboard(); res(v); }); card.appendChild(b); });
+    document.body.appendChild(ov); document.body.classList.add('ob-open'); }); }
+  function applyState(st){ const uid=S._uid; S=merge(st); S._uid=uid; try{ localStorage.setItem(LS,JSON.stringify(S)); }catch(e){} if(S.palette&&S.palette!==curPalette()) applyPalette(S.palette,true); }
+  async function fetchRemote(uid){ const R={}; let any=false; for(const g of GROUPS){ const d=await SY.ad.get(uid,g); if(d&&d.json!=null){ R[g]=d; any=true; } } return {R,any}; }
+  function remoteState(R){ const o={}; GROUPS.forEach(g=>{ if(R[g]) Object.assign(o,JSON.parse(R[g].json)); }); return o; }
+  async function onUser(u){
+    stopSync(); SY.user=u;
+    if(!u){ setSync('off'); render(); return; }
+    setSync('loading'); loadBase();
+    const {R,any}=await fetchRemote(u.uid);
+    let linked=false; try{ linked=localStorage.getItem('nny-linked')===u.uid; }catch(e){}
+    if(!linked){
+      backupLocal();
+      if(!any){
+        const c= meaningful(S) ? await ask('이 기기 기록을 계정에 저장할까요?',['계정에 아직 기록이 없어요. 지금 이 기기의 기록('+summ(S)+')을 '+(u.email||'이 계정')+'에 저장하고, 다른 기기와 동기화해요.','이 기기 기록은 지워지지 않아요.'],[['up','계정에 저장하고 동기화','sun'],['no','취소 (로그아웃)']]) : 'up';
+        if(c!=='up'){ await SY.ad.signOut(); return; }
+        SY.base={};
+      } else {
+        const rs=remoteState(R);
+        let c='remote';
+        if(meaningful(S) && !eqv(splitState(merge(rs)),splitState(S))){
+          c=await ask('계정에 이미 기록이 있어요',['계정: '+summ(rs),'이 기기: '+summ(S),'어떻게 할지 골라주세요. 어떤 걸 골라도 이 기기의 지금 기록은 따로 한 번 보관해둬요.'],
+            [['merge','둘 다 합치기 (추천)','sun'],['remote','계정 기록 쓰기'],['local','이 기기 기록으로 계정 덮기'],['cancel','취소 (로그아웃)']]);
+        }
+        if(c==='cancel'){ await SY.ad.signOut(); return; }
+        if(c==='remote'){ applyState(rs); SY.base={}; GROUPS.forEach(g=>{ if(R[g]) SY.base[g]=R[g].json; }); }
+        else if(c==='merge'){ const loc=splitState(S), rem=splitState(merge(rs)); const out={}; const ln=Date.now();
+          GROUPS.forEach(g=>{ Object.assign(out, R[g]? merge3(undefined,loc[g],JSON.parse(R[g].json),true) : loc[g]); });
+          { const seen=new Set(); out.notes=(out.notes||[]).filter(n=>{ const k=[n.k,n.ch,n.t,n.e,n.ko].join('\u0001'); if(seen.has(k)) return false; seen.add(k); return true; }); }
+          applyState(out); SY.base={}; GROUPS.forEach(g=>{ if(R[g]) SY.base[g]=R[g].json; }); }
+        else { SY.base={}; GROUPS.forEach(g=>{ if(R[g]) SY.base[g]=R[g].json; }); GROUPS.forEach(g=>SY.dirtyAt[g]=Date.now()); SY.forceLocal=true; }
+      }
+      try{ localStorage.setItem('nny-linked',u.uid); }catch(e){}
+      storeBase();
+    } else {
+      // 이미 연결된 기기: 마지막 동기화 이후 양쪽 변경을 합침
+      GROUPS.forEach(g=>{ if(R[g]) reconcile(g,R[g]); });
+    }
+    S._uid=S._uid||''; render(); maybeOnboard();
+    GROUPS.forEach(g=>SY.unsubs.push(SY.ad.listen(u.uid,g,(d,pend)=>{ if(pend||!d||d.json==null) return; if(d.by===DEVICE&&d.json===SY.base[g]) return; reconcile(g,d); })));
+    setSync(navigator.onLine===false?'offline':'ok'); SY.lastOk=Date.now(); syncQueue(true);
+  }
+  function reconcile(g,d){
+    if(d.json===SY.base[g]) return;
+    const cur=splitState(S)[g]; const rem=JSON.parse(d.json); const base=SY.base[g]!=null?JSON.parse(SY.base[g]):undefined;
+    const localNewer=(SY.dirtyAt[g]||0)>(d.atMs||0);
+    const merged=merge3(base,cur,rem,localNewer);
+    SY.base[g]=d.json; storeBase();
+    if(!eqv(merged,cur)){ const nx=Object.assign({},S); GROUPS.forEach(()=>{}); Object.keys(cur).forEach(k=>{ if(!(k in merged)) delete nx[k]; }); Object.assign(nx,merged); applyState(nx);
+      const a=document.activeElement; if(a&&/INPUT|TEXTAREA|SELECT/.test(a.tagName)&&!a.closest('#onboard')) SY.needRender=true; else { render(); maybeOnboard(); } }
+    if(!eqv(merged,rem)) syncQueue();
+    SY.lastOk=Date.now(); if(SY.st!=='saving') setSync(navigator.onLine===false?'offline':'ok');
+  }
+  function syncQueue(now){ if(!SY.user||!SY.ad) return; clearTimeout(SY.timer); SY.timer=setTimeout(pushNow, now?0:1200); }
+  async function pushNow(){
+    if(!SY.user) return; const uid=SY.user.uid; const parts=splitState(S); const jobs=[];
+    GROUPS.forEach(g=>{ const j=stable(parts[g]); if(!SY.forceLocal && j===SY.base[g]) return; SY.dirtyAt[g]=SY.dirtyAt[g]||Date.now();
+      const data={json:j,atMs:Date.now(),by:DEVICE}; jobs.push(Promise.resolve(SY.ad.set(uid,g,data)).then(()=>{ SY.base[g]=j; storeBase(); delete SY.dirtyAt[g]; })); });
+    SY.forceLocal=false; if(!jobs.length) return;
+    SY.pending++; setSync(navigator.onLine===false?'offline':'saving');
+    try{ await Promise.all(jobs); SY.pending--; SY.lastOk=Date.now(); setSync(SY.pending?'saving':(navigator.onLine===false?'offline':'ok'),''); }
+    catch(e){ SY.pending--; setSync('error','저장하지 못했어요 ('+(e&&e.code||e&&e.message||'알 수 없는 오류')+'). 기록은 이 기기에 남아 있고, 다시 시도할게요.'); setTimeout(()=>syncQueue(true),15000); }
+  }
+  function renderSync(){
+    const W=$('#syncCard'); if(!W) return; W.textContent=''; const cfg=fbConfig()||window.__nnyFake;
+    const h=el('div','ch'); h.append(el('span','ct','계정 · 동기화')); if(cfg) { const c=el('span','syncchip s-'+SY.st); c.appendChild(ic('cloud')); c.appendChild(el('span',null,SYNC_LAB[SY.st]||'')); h.appendChild(c); } W.appendChild(h);
+    if(!cfg){ W.appendChild(el('div','small muted','지금은 기록이 이 기기 브라우저에만 저장돼요. 아이폰·아이패드 자동 동기화를 쓰려면 Firebase 설정이 필요해요.'));
+      const d=el('details'); d.style.marginTop='10px'; d.appendChild(el('summary','small','Firebase 설정 붙여넣기 (관리자용)')); const ta=el('textarea'); ta.rows=5; ta.placeholder='Firebase 콘솔의 const firebaseConfig = { ... } 코드를 그대로 붙여넣으세요'; ta.style.marginTop='8px';
+      const b=el('button','btn sm','저장하고 켜기'); b.style.marginTop='8px'; const m=el('div','small'); b.addEventListener('click',()=>{ const o={}; (ta.value.match(/(\w+)\s*:\s*["']([^"']+)["']/g)||[]).forEach(x=>{ const mm=/(\w+)\s*:\s*["']([^"']+)["']/.exec(x); o[mm[1]]=mm[2]; }); if(!o.apiKey||!o.projectId){ m.textContent='apiKey와 projectId를 찾지 못했어요. 코드를 다시 확인해 주세요.'; m.style.color='var(--red)'; return; } try{ localStorage.setItem('nny-fb-config',JSON.stringify(o)); }catch(e){} location.reload(); });
+      d.append(ta,b,m); W.appendChild(d); return; }
+    if(!FIREBASE_CONFIG && !window.__nnyFake){ const x=el('button','linkb','붙여넣은 Firebase 설정 지우기'); x.style.marginBottom='8px'; x.addEventListener('click',()=>{ try{ localStorage.removeItem('nny-fb-config'); }catch(e){} location.reload(); }); W.appendChild(x); }
+    if(SY.err&&SY.st==='error') { const e=el('div','small'); e.style.color='var(--red)'; e.textContent=SY.err; W.appendChild(e); }
+    if(!SY.user){
+      W.appendChild(el('div','small muted', SY.st==='loading'?'연결하는 중이에요…':'Google 계정으로 로그인하면 아이폰·아이패드에서 같은 기록을 자동으로 이어서 쓸 수 있어요. 로그인하지 않으면 이 기기에만 저장되고 다른 기기와 동기화되지 않아요.'));
+      const b=el('button','btn'); b.style.marginTop='12px'; b.style.width='100%'; b.appendChild(document.createTextNode('Google로 로그인')); b.disabled=!SY.ad;
+      b.addEventListener('click',async()=>{ try{ setSync('loading',''); await SY.ad.signIn(); }catch(e){ setSync('error', /popup-closed/.test(e.code||'')?'로그인 창이 닫혔어요. 다시 시도해 주세요.':/unauthorized-domain/.test(e.code||'')?'이 주소가 Firebase 승인 도메인에 없어요. 설정 안내의 3단계를 확인하세요.':'로그인하지 못했어요 ('+(e.code||e.message||e)+').'); } });
+      W.appendChild(b); return; }
+    const who=el('div','syncwho'); who.append(el('b',null,SY.user.name||SY.user.email||'로그인됨'), el('span','small muted',SY.user.email||'')); W.appendChild(who);
+    W.appendChild(el('div','small muted', SY.st==='offline'?'오프라인이에요. 바꾼 내용은 이 기기에 저장해뒀다가 연결되면 자동으로 올려요.':SY.st==='saving'?'바뀐 내용을 올리는 중이에요.':SY.st==='error'?'':'같은 계정으로 로그인한 기기끼리 자동으로 맞춰져요.'+(SY.lastOk?' 마지막 동기화 '+pad(new Date(SY.lastOk).getHours())+':'+pad(new Date(SY.lastOk).getMinutes()):'')));
+    const r=el('div','row'); r.style.marginTop='12px'; const a=el('button','btn ghost sm','지금 동기화'); a.addEventListener('click',async()=>{ if(!SY.user) return; setSync('loading'); try{ const {R}=await fetchRemote(SY.user.uid); GROUPS.forEach(g=>{ if(R[g]) reconcile(g,R[g]); }); syncQueue(true); setSync('ok'); }catch(e){ setSync('error','동기화하지 못했어요 ('+(e.code||e.message||e)+').'); } });
+    const o=el('button','btn ghost sm','로그아웃'); o.addEventListener('click',async()=>{ await SY.ad.signOut(); }); r.append(a,o); W.appendChild(r);
+    W.appendChild(el('div','small muted','로그아웃해도 이 기기 기록은 그대로 남아요.'));
+  }
+
   function maybeOnboard(){ renderBkNote(); if(!S.profile.done && !S.profile.skip) buildOnboard('welcome'); else if(S.profile.done) closeOnboard(); }
 
-  function render(){ syncCls(); clearBound(); _kn=null; S.notes.forEach(n=>{ if(n.k==='TP'&&!n.course) n.course=myLv()||'B'; }); renderHomeCal(); renderToday(); renderSum(); renderFlyer(); renderTodayHw(); renderScope(); renderAtt(); renderNotes(); renderTP(); renderCurrHw(); renderHw(); renderCal(); renderEx(); renderCourse(); renderTheme();
+  function render(){ syncCls(); clearBound(); _kn=null; S.notes.forEach(n=>{ if(n.k==='TP'&&!n.course) n.course=myLv()||'B'; }); renderHomeCal(); renderToday(); renderSum(); renderFlyer(); renderTodayHw(); renderScope(); renderAtt(); renderNotes(); renderTP(); renderCurrHw(); renderHw(); renderCal(); renderEx(); renderCourse(); renderTheme(); renderSync();
     if(focusScope){ const i=document.querySelector('section.on input[data-scope="'+CSS.escape(focusScope)+'"]'); if(i) i.focus(); focusScope=null; } }
 
   try{ const raw=localStorage.getItem(LS); if(raw) S=merge(JSON.parse(raw)); }catch(e){}
@@ -2816,6 +3004,7 @@ Rules:
   setInterval(()=>{ if(!tStart){ renderToday(); renderTodayHw(); } },60000);
 
   initSample();
+  initSync();
   (async()=>{
     try{
       if(!window.claude||!claude.use) return;
