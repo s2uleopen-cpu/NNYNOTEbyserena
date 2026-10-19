@@ -3182,16 +3182,22 @@ Rules:
   function newWKey(){ const a=new Uint8Array(18); crypto.getRandomValues(a); return Array.from(a,b=>'abcdefghijklmnopqrstuvwxyz0123456789'[b%36]).join('')+'nny'; }
   function wSummary(){
     const tk=todayKey(), c=C(), now=parse(tk);
-    const dueMap={}; const y0=tym();
-    [ymAdd(y0,-1),y0,ymAdd(y0,1)].forEach(ym=>boundDays(ym).forEach(d=>{ const due=dueOf(d); if(due) (dueMap[due]=dueMap[due]||[]).push({n:d.n,done:hwDone(d)}); }));
+    const lo=new Date(now); lo.setDate(lo.getDate()-31); const hi=new Date(now); hi.setDate(hi.getDate()+7); const loK=ymd(lo), hiK=ymd(hi);
+    // 숙제: 마감일 기준으로 지난 31일~앞으로 7일 (위젯이 날짜에 맞춰 미제출·오늘 마감을 계산)
+    const hw=[]; const y0=tym();
+    [ymAdd(y0,-1),y0,ymAdd(y0,1)].forEach(ym=>boundDays(ym).forEach(d=>{ const due=dueOf(d); if(!due||due<loK||due>hiK) return;
+      hw.push({n:d.n,due,done:hwDone(d),left:hwKeys(d).filter(k=>!S.hwChk[k]).length}); }));
+    // 아직 결석신청 안 한 결석
+    const abs=[]; Object.keys(S.log).sort().forEach(k=>{ const ab=S.log[k].ab||{}; Object.keys(ab).forEach(key=>{ if(!ab[key]) abs.push({d:k,t:ABN(key,k)}); }); });
     const days=[];
     for(let i=0;i<7;i++){ const dt=new Date(now); dt.setDate(dt.getDate()+i); const k=ymd(dt);
       const cd=currDay(k), off=isOff(k), offEv=eventsOn(k).find(e=>e.kind==='off');
       days.push({ d:k, w:DOW[dt.getDay()], off, offT:offEv?offEv.t:'', tun:!!(cd&&cd.tuning), dn:off?0:(cd?cd.n:dayNo(k)),
         it: off?[]:blocks(k).map(b=>({n:b.n,s:b.s||'',e:b.e||''})),
-        due:(dueMap[k]||[]).map(x=>({n:x.n,done:x.done})) }); }
+        todo: cd&&cd.todo?cd.todo.slice():[],
+        nhw: cd&&cd.items.length?{ty:[...new Set(cd.items.map(h=>h.ty))].join(', '),self:!!cd.self}:null }); }
     const dday=allEventDates().filter(k=>k>=tk).flatMap(k=>eventsOn(k).filter(e=>['test','end','start'].includes(e.kind) && !/flyer-to-be/i.test(e.t)).map(e=>({d:k,t:e.t,k:e.kind}))).slice(0,3);
-    return { v:1, cls:c?c.name:'', en:(S.profile.en||S.me.en||'').trim(), days, dday };
+    return { v:2, cls:c?c.name:'', en:(S.profile.en||S.me.en||'').trim(), days, hw, abs, dday };
   }
   const wSentKey = k => 'nny-wsent:'+k;
   function wQueue(){ if(WG.err && Date.now()-WG.failAt<60000) return; if(!S.wkey||!SY.user||!SY.ready||!SY.ad||!SY.ad.setW) return; clearTimeout(WG.timer); WG.timer=setTimeout(wPush,2500); }
