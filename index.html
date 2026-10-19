@@ -3203,7 +3203,7 @@ Rules:
   function wQueue(){ if(WG.err && Date.now()-WG.failAt<60000) return; if(!S.wkey||!SY.user||!SY.ready||!SY.ad||!SY.ad.setW) return; clearTimeout(WG.timer); WG.timer=setTimeout(wPush,2500); }
   async function wPush(){
     const key=S.wkey; if(!key||!SY.user||!SY.ready||!SY.ad||!SY.ad.setW) return;
-    let j; try{ j=stable(wSummary()); }catch(e){ return; }
+    let j; try{ j=stable(wSummary()); }catch(e){ WG.failAt=Date.now(); WG.err='위젯 정보를 만들지 못했어요 ('+(e&&e.message||e)+')'; renderSync(); return; }
     let last=''; try{ last=localStorage.getItem(wSentKey(key))||''; }catch(e){}
     if(last===j) return;   // 바뀐 게 없으면 저장 안 함
     try{ await SY.ad.setW(key,{uid:SY.user.uid,json:j,atMs:Date.now()}); WG.err=''; WG.at=Date.now();
@@ -3222,7 +3222,7 @@ Rules:
       W.appendChild(b); return W; }
     W.appendChild(el('div','small muted','위젯 키를 복사해서 Scriptable 스크립트 맨 위에 붙여넣으세요. 이 키는 내 일정을 읽는 비밀번호라 다른 사람과 공유하지 마세요.'));
     if(WG.err){ const e=el('div','small'); e.style.color='var(--red)'; e.textContent=WG.err; W.appendChild(e); }
-    else W.appendChild(el('div','small muted','위젯 정보 업데이트 '+(WG.at?fmtSyncAt(WG.at):'변경 없음')));
+    else W.appendChild(el('div','small muted',WG.at?'위젯 정보 업데이트 '+fmtSyncAt(WG.at):'위젯 정보가 최신이에요'));
     const r=el('div','row'); r.style.marginTop='10px';
     const cp=el('button','btn sm','위젯 키 복사'); cp.addEventListener('click',()=>copyText(S.wkey,cp));
     const ch=el('button','btn ghost sm','키 바꾸기'); ch.addEventListener('click',async()=>{
@@ -3231,7 +3231,10 @@ Rules:
     const off=el('button','btn ghost sm','위젯 끄기'); off.addEventListener('click',async()=>{
       const c=await ask('위젯을 끌까요?',['홈 화면 위젯이 더 이상 일정을 불러오지 않고, 위젯용 요약도 계정에서 지워져요.'],[['ok','끄기','sun'],['no','취소']]);
       if(c!=='ok') return; const old=S.wkey; S.wkey=''; save(); await wDelete(old); renderSync(); });
-    r.append(cp,ch,off); W.appendChild(r); return W;
+    const up=el('button','btn ghost sm','지금 업데이트'); up.addEventListener('click',()=>{ try{ localStorage.removeItem(wSentKey(S.wkey)); }catch(e){} WG.err=''; WG.failAt=0; up.textContent='업데이트 중…'; wPush(); });
+    r.append(cp,up,ch,off); W.appendChild(r);
+    const v=el('div','small muted','위젯 버전 2 · 오늘 할 일'); v.style.cssText='margin-top:8px;font-size:11.5px'; W.appendChild(v);
+    return W;
   }
   // ---------- 기록 복구: 이 기기에 남아 있는 기록 사본 찾기
   function recoveryList(){ const out=[]; const add=(label,at,st)=>{ if(st&&typeof st==='object'&&meaningful(st)) out.push({label,at,st}); };
